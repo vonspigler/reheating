@@ -10,6 +10,12 @@
 ##                                                                            ##
 ################################################################################
 
+#get_ipython().magic('matplotlib inline')
+#import matplotlib.pyplot as plt
+#import matplotlib.cm as cmx
+#from matplotlib.backends.backend_pdf import PdfPages
+#from IPython.core.pylabtools import figsize
+#figsize(15, 10)
 import torch
 from torch import Tensor, nn, optim, cuda
 from torch.nn import functional as F
@@ -88,10 +94,11 @@ class RandomSampler:
     def __len__(self):
         return self.length
 
-def load_batch(loader, cuda = False):
+def load_batch(loader, cuda = False, only_one_epoch = False):
     """This function loads a single batch with torch.utils.data.DataLoader and RandomSampler.
 
-     -- There is no end to the number of batches (no concept of epoch).
+     -- By default, there is no end to the number of batches (no concept of epoch).
+        This is overridden with only_one_epoch = True.
     """
 
     while True:
@@ -100,55 +107,13 @@ def load_batch(loader, cuda = False):
             data, target = Variable(data), Variable(target)
             yield data, target
 
+        if only_one_epoch: break  # exit the loop if only_one_epoch == True
+
 # -- Training function -- #
 
-def train(model, trainset, lr, bs, num_batches, save_log_times = True, time_factor = None):
-    """Train a model on a dataset; specify LR, BS and number of batches (no epochs!).
-
-	 -- train(model, dataset, LR, BS, #batches, save_log_times = TRUE, time_factor = NONE)
-	    * save_log_times = TRUE: save data with log intervals, incremented by a factor time_factor
-		  				 = FALSE: save at every step...
-	    * time_factor = NONE: compute it in such a way that there are 200 saved points
-	    > the function returns a list L, each element t is a saved batch step:
-		 L[t] = [ num batch, loss value, MODEL.STATE_DICT() ]
-	"""
-
-    model.train()  # not necessary in this simple model, but I keep it for the sake of generality
-    optimizer = optim.SGD(model.parameters(), lr = lr)	# learning rate
-
-    trainloader = DataLoader(
-        trainset,								# dataset
-        batch_size = bs,						# batch size
-        pin_memory = cuda.is_available(),		# speed-up for gpu's
-        sampler = RandomSampler(len(trainset))	# no epochs
-    )
-
-    if time_factor == None: time_factor = num_batches**(1.0/200)
-
-    losses = []
-    next_t = 1.0
-    batch = 0
-
-    for data, target in load_batch(trainloader, cuda = cuda.is_available()):
-        batch += 1
-        if batch > num_batches:
-            break
-
-        optimizer.zero_grad()
-        output = model(data)
-        loss = F.nll_loss(output, target, size_average = True)
-        loss.backward()
-        optimizer.step()
-
-        if not save_log_times or batch > next_t:
-            losses.append([batch, loss.data[0], model.state_dict()])
-            next_t *= time_factor
-
-    return losses
-
-def train_and_save(model, trainset, lr, bs, minimization_time, file_state, file_losses):
-    """This function trains a model by model by calling the function train(...)
-    and saves both its state_dict at the end and the losses (on a log scale).
+def train_and_save(model, trainset, lr, bs, minimization_time, file_state, file_losses, time_factor = None):
+    """This function trains a model by model and saves both its state_dict at
+    the end and the losses (on a log scale). It takes care of cuda().
 
      -- train_and_save(
             model,          the model (the user should call .cuda() before)
@@ -161,19 +126,61 @@ def train_and_save(model, trainset, lr, bs, minimization_time, file_state, file_
         )
     """
 
-    losses = train(model, trainset, lr, bs, minimization_time)
+    if cuda.is_available(): model.cuda()
+    model.train()  # not necessary in this simple model, but I keep it for the sake of generality
+    optimizer = optim.SGD(model.parameters(), lr = lr)	# learning rate
 
-    state_dict = model.state_dict()
+    trainloader = DataLoader(
+        trainset,								# dataset
+        batch_size = bs,						# batch size
+        pin_memory = cuda.is_available(),		# speed-up for gpu's
+        sampler = RandomSampler(len(trainset))	# no epochs
+    )
+
+    if time_factor == None: time_factor = minimization_time**(1.0/200)
+
+    next_t = 1.0
+    batch = 0
+
+    with open(file_losses, 'wb') as losses_dump:
+        for data, target in load_batch(trainloader, cuda = cuda.is_available()):
+            batch += 1
+            if batch > minimization_time:
+                break
+
+            optimizer.zero_grad()
+            output = model(data)
+            loss = F.nll_loss(output, target, size_average = True)
+            loss.backward()
+            optimizer.step()
+
+            if batch > next_t:
+                # I want to save the average loss on the total training set
+                avg_loss = 0
+                total_trainloader = DataLoader(
+                    trainset,
+                    batch_size = 1024,  # I don't need small batches for this
+                    pin_memory = cuda.is_available(),
+                    sampler = RandomSampler(len(trainset))
+                )
+
+                for data, target in load_batch(total_trainloader, cuda = cuda.is_available(), only_one_epoch = True):
+                    output = model(data)
+                    avg_loss += F.nll_loss(output, target, size_average = False).data[0]
+
+                pickle.dump(( batch, avg_loss/len(trainset) ), losses_dump)
+                next_t *= time_factor
+
+    state_dict = model.state_dict()  # == losses[-1]['state_dict']
     torch.save(state_dict, file_state)
-
-    with open(file_state, 'wb') as dump: pickle.dump(state_dict, dump)
-    with open(file_losses, 'wb') as dump:
-        pickle.dump([(batch, loss) for batch, loss, _ in losses], dump)
 
     return state_dict
 
-def do_reheating_cycle(lrs, bss, network_parameters, minimization_time, OUTPUT_DIR):
-    """
+def do_reheating_cycle(lrs, bss, network_parameters, trainset, minimization_time, OUTPUT_DIR):
+    """This function performs a cold minimization, then it reheats the system at
+    some given temperatures and saves losses and states in the given files.
+
+     -- lrs, bss: these are the sets of LRs and BSs that specify the temperature
     """
 
     # -- Cold run -- #
@@ -184,13 +191,12 @@ def do_reheating_cycle(lrs, bss, network_parameters, minimization_time, OUTPUT_D
     if not os.path.isdir(OUTPUT_DIR): os.makedirs(OUTPUT_DIR)
 
     cold_model = SimpleNet(*network_parameters)
-    if cuda.is_available(): cold_model.cuda()
 
     print("Training cold_model at lr = {} and bs = {} ...".format(lr, bs))
     cold_state_dict = train_and_save(
         cold_model, trainset, lr, bs, minimization_time,
         file_state = OUTPUT_DIR + '/cold_trained_lr={}_bs={}.p'.format(lr, bs),
-        file_losses = OUTPUT_DIR + '/cold_losses_lr={}_bs={}.dat'.format(lr, bs)
+        file_losses = OUTPUT_DIR + '/cold_losses_lr={}_bs={}.p'.format(lr, bs)
     )
 
     # -- Reheating -- #
@@ -199,7 +205,6 @@ def do_reheating_cycle(lrs, bss, network_parameters, minimization_time, OUTPUT_D
     # later I can divide loss(temps[i]) by loss(temps[0])
     for lr, bs in zip(lrs, bss):
         reheated_model = SimpleNet(*network_parameters)
-        if cuda.is_available(): reheated_model.cuda()
 
         reheated_model.load_state_dict(cold_state_dict)
 
@@ -217,7 +222,7 @@ def do_reheating_cycle(lrs, bss, network_parameters, minimization_time, OUTPUT_D
 # input_channels, output_classes, image_size (Fashion-MNIST = 28x28 -> size = 28)
 network_parameters = (1, 10, 28)
 # minimization time for each run (both cold and reheated)
-minimization_time = int(1e6)
+minimization_time = int(1e2)
 # temperatures for reheating; first one is for the cold model
 # I am using the same temperatures Mario used (I want to reproduce the same data)
 temps = [0.0002, 0.00025, 0.0003, 0.00038, 0.0005, 0.0006, 0.00075, 0.001, 0.0015, 0.003]
@@ -227,15 +232,15 @@ temps = [0.0002, 0.00025, 0.0003, 0.00038, 0.0005, 0.0006, 0.00075, 0.001, 0.001
 bss = [128]*len(temps)  # lr = temp*bs, for temp in temps
 lrs = [bs*temp for temp, bs in zip(temps, bss)]
 do_reheating_cycle(
-    lrs, bss, network_parameters, minimization_time,
+    lrs, bss, network_parameters, trainset, minimization_time,
     'reheating_data/fixed_bs_cold_lr={}_bs={}'.format(lrs[0], bss[0])
 )
 
 # -- FIXED LR -- #
 
-lrs = [0.03]*len(temps)
+lrs = [0.03]*len(temps)  ####################################################### CHECK
 bss = [int(lr/temp) for temp, lr in zip(temps, lrs)]
 do_reheating_cycle(
-    lrs, bss, network_parameters, minimization_time,
-    OUTPUT_DIR = 'reheating_data/fixed_bs_cold_lr={}_bs={}'.format(lrs[0], bss[0])
+    lrs, bss, network_parameters, trainset, minimization_time,
+    OUTPUT_DIR = 'reheating_data/fixed_lr_cold_lr={}_bs={}'.format(lrs[0], bss[0])
 )
