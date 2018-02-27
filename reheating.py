@@ -210,7 +210,7 @@ def do_reheating_cycle(lrs, bss, network_parameters, trainset, minimization_time
 
         print("Training reheated_model at lr = {} and bs = {} ...".format(lr, bs))
         train_and_save(
-            cold_model, trainset, lr, bs, minimization_time,
+            reheated_model, trainset, lr, bs, minimization_time,
             file_state = OUTPUT_DIR + '/reheated_trained_lr={}_bs={}.p'.format(lr, bs),
             file_losses = OUTPUT_DIR + '/reheated_losses_lr={}_bs={}.p'.format(lr, bs)
         )
