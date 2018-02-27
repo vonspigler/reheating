@@ -1,33 +1,30 @@
-################################################################################
-##                                                                            ##
-##      REHEATING & INTERPOLATION                                             ##
-##                                                                            ##
-################################################################################
-##                                                                            ##
-##      TODO:                                                                 ##
-##                                                                            ##
-##      * compare with Mario's results (fixed LR, lowering BS)                ##
-##                                                                            ##
-################################################################################
+########################################################################
+##                                                                    ##
+##      REHEATING & INTERPOLATION                                     ##
+##                                                                    ##
+########################################################################
+##                                                                    ##
+##      TODO:                                                         ##
+##                                                                    ##
+##      * compare with Mario's results (fixed LR, lowering BS)        ##
+##                                                                    ##
+########################################################################
 
-#get_ipython().magic('matplotlib inline')
-#import matplotlib.pyplot as plt
-#import matplotlib.cm as cmx
-#from matplotlib.backends.backend_pdf import PdfPages
-#from IPython.core.pylabtools import figsize
-#figsize(15, 10)
+
+import os
+import pickle
+import numpy as np
+from collections import OrderedDict
 import torch
 from torch import Tensor, nn, optim, cuda
 from torch.nn import functional as F
 from torch.autograd import Variable
 from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
-import pickle
-import numpy as np
-from collections import OrderedDict
-import os
 
-# -- MODELS -- #
+
+# --  Models  -------------------------------------------------------- #
+
 
 class SimpleNet(torch.nn.Module):
     """Simple convolutional networ: 2 conv layers followed by 2 fc layers.
@@ -57,7 +54,9 @@ class SimpleNet(torch.nn.Module):
         x = F.log_softmax(x, dim = 1)
         return x
 
-# -- DATASETS -- #
+
+# --  Datasets  ------------------------------------------------------ #
+
 
 # Fashion-MNIST dataset: 1 channel, 10 classes, 28x28 pixels
 # Normalized as MNIST -- I should probably change it
@@ -76,7 +75,9 @@ trainset = list(datasets.FashionMNIST(
 #    transforms.Normalize((0.1307,), (0.3081,))
 #])))
 
-# -- Other definitions -- #
+
+# --  Other definitions  --------------------------------------------- #
+
 
 class RandomSampler:
     """RandomSampler is a sampler for torch.utils.data.DataLoader.
@@ -109,7 +110,7 @@ def load_batch(loader, cuda = False, only_one_epoch = False):
 
         if only_one_epoch: break  # exit the loop if only_one_epoch == True
 
-# -- Training function -- #
+# --  Training function  --------------------------------------------- #
 
 def train_and_save(model, trainset, lr, bs, minimization_time, file_state, file_losses, time_factor = None):
     """This function trains a model by model and saves both its state_dict at
@@ -216,7 +217,7 @@ def do_reheating_cycle(lrs, bss, network_parameters, trainset, minimization_time
         )
 
 
-#### MAIN ####
+# ==  MAIN  ========================================================== #
 
 
 # input_channels, output_classes, image_size (Fashion-MNIST = 28x28 -> size = 28)
@@ -229,7 +230,9 @@ minimization_time = int(1e2)  # I USE 1e2 FOR DEBUG PURPOSES; USE ~1e5-1e6
 # I am using the same temperatures Mario used (I want to reproduce the same data)
 temps = [0.0002, 0.00025, 0.0003, 0.00038, 0.0005, 0.0006, 0.00075, 0.001, 0.0015, 0.003]
 
-# -- FIXED BS -- #
+
+# --  Fixed BS  ------------------------------------------------------ #
+
 
 bss = [128]*len(temps)  # lr = temp*bs, for temp in temps
 lrs = [bs*temp for temp, bs in zip(temps, bss)]
@@ -238,9 +241,11 @@ do_reheating_cycle(
     'reheating_data/fixed_bs_cold_lr={}_bs={}'.format(lrs[0], bss[0])
 )
 
-# -- FIXED LR -- #
 
-lrs = [0.03]*len(temps)  ####################################################### CHECK
+# --  Fixed LR  ------------------------------------------------------ #
+
+
+lrs = [0.03]*len(temps)
 bss = [int(lr/temp) for temp, lr in zip(temps, lrs)]
 do_reheating_cycle(
     lrs, bss, network_parameters, trainset, minimization_time,

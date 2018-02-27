@@ -97,7 +97,7 @@ for reheated_losses in all_reheated_losses:
     lr, bs = reheated_losses[0:2]
     plt.plot(
         [ t*lr for t, l in reheated_losses[-1] ], [ float(l)/l0 for (t, l), (_, l0) in zip(reheated_losses[-1], all_reheated_losses[0][-1]) ], '-',
-        label = "T={}, lr={}, bs={}".format(lr*bs, lr, bs)
+        label = "T={:.5}, lr={}, bs={}".format(lr/bs, lr, bs)
     )
 plt.yscale('log')
 plt.xscale('log')
