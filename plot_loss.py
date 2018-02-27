@@ -41,8 +41,8 @@ def pickle_everything(filename):
 # --  Load the loss data  ---------------------------------------------------- #
 
 
-COLD_LR, COLD_BS, SIMULATION_TYPE = '0.0256', '128', 'fixed_bs'
-#COLD_LR, COLD_BS, SIMULATION_TYPE = '0.03', '150', 'fixed_lr'
+#COLD_LR, COLD_BS, SIMULATION_TYPE = '0.0256', '128', 'fixed_bs'
+COLD_LR, COLD_BS, SIMULATION_TYPE = '0.03', '150', 'fixed_lr'
 OUTPUT_DIR = 'reheating_data/' + SIMULATION_TYPE + '_cold_lr=' + COLD_LR + '_bs=' + COLD_BS
 
 cold_losses = []
