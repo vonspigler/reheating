@@ -1,14 +1,15 @@
-########################################################################
-##                                                                    ##
-##      REHEATING & INTERPOLATION                                     ##
-##                                                                    ##
-########################################################################
-##                                                                    ##
-##      TODO:                                                         ##
-##                                                                    ##
-##      * compare with Mario's results (fixed LR, lowering BS)        ##
-##                                                                    ##
-########################################################################
+################################################################################
+##                                                                            ##
+##      REHEATING & INTERPOLATION                                             ##
+##                                                                            ##
+################################################################################
+##                                                                            ##
+##      TODO:                                                                 ##
+##                                                                            ##
+##      * Save state_dict's for a bunch of intermediate points, in order      ##
+##      * to do an interpolation in interpolation.py                          ##
+##                                                                            ##
+################################################################################
 
 
 import os
@@ -23,7 +24,7 @@ from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
 
 
-# --  Models  -------------------------------------------------------- #
+# --  Models  ---------------------------------------------------------------- #
 
 
 class SimpleNet(torch.nn.Module):
@@ -55,7 +56,7 @@ class SimpleNet(torch.nn.Module):
         return x
 
 
-# --  Datasets  ------------------------------------------------------ #
+# --  Datasets  -------------------------------------------------------------- #
 
 
 # Fashion-MNIST dataset: 1 channel, 10 classes, 28x28 pixels
@@ -76,7 +77,7 @@ trainset = list(datasets.FashionMNIST(
 #])))
 
 
-# --  Other definitions  --------------------------------------------- #
+# --  Other definitions  ----------------------------------------------------- #
 
 
 class RandomSampler:
@@ -110,7 +111,9 @@ def load_batch(loader, cuda = False, only_one_epoch = False):
 
         if only_one_epoch: break  # exit the loop if only_one_epoch == True
 
-# --  Training function  --------------------------------------------- #
+
+# --  Training function  ----------------------------------------------------- #
+
 
 def train_and_save(model, trainset, lr, bs, minimization_time, file_state, file_losses, time_factor = None):
     """This function trains a model by model and saves both its state_dict at
@@ -217,7 +220,7 @@ def do_reheating_cycle(lrs, bss, network_parameters, trainset, minimization_time
         )
 
 
-# ==  MAIN  ========================================================== #
+# ==  MAIN  ================================================================== #
 
 
 # input_channels, output_classes, image_size (Fashion-MNIST = 28x28 -> size = 28)
@@ -231,7 +234,7 @@ minimization_time = int(1e2)  # I USE 1e2 FOR DEBUG PURPOSES; USE ~1e5-1e6
 temps = [0.0002, 0.00025, 0.0003, 0.00038, 0.0005, 0.0006, 0.00075, 0.001, 0.0015, 0.003]
 
 
-# --  Fixed BS  ------------------------------------------------------ #
+# --  Fixed BS  -------------------------------------------------------------- #
 
 
 bss = [128]*len(temps)  # lr = temp*bs, for temp in temps
@@ -242,7 +245,7 @@ do_reheating_cycle(
 )
 
 
-# --  Fixed LR  ------------------------------------------------------ #
+# --  Fixed LR  -------------------------------------------------------------- #
 
 
 lrs = [0.03]*len(temps)
