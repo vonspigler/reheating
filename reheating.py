@@ -11,6 +11,21 @@
 ##                                                                            ##
 ##      * check whether Loss = NaN and quit()                                 ##
 ##                                                                            ##
+##      * start from larger temperatures                                      ##
+##                                                                            ##
+################################################################################
+##                                                                            ##
+##      RESULTS:                                                              ##
+##                                                                            ##
+##      * It seems that the better the system is prepared (i.e. the           ##
+##        longer the cold training), the rarer are the jumps.                 ##
+##                                                                            ##
+##        It is not clear why this happens.                                   ##
+##                                                                            ##
+##      * Fixing LR or BS have, it seems, qualitatively similar effects.      ##
+##        Still, it looks like Fixed-BS show cleaner results (large LR        ##
+##        have difficulties converging?)                                      ##
+##                                                                            ##
 ################################################################################
 
 
@@ -231,8 +246,8 @@ network_parameters = (1, 10, 28)
 # minimization time for each run (both cold and reheated)
 minimization_time = int(2e5)  # I USE 1e2 FOR DEBUG PURPOSES; USE ~1e5-1e6
 
-# temperatures for reheating; first one is for the cold model
-# I am using the same temperatures Mario used (I want to reproduce the same data)
+# temperatures for reheating; first one is for the cold model:
+# -- these are the same temperatures Mario used (I want to reproduce the same data)
 temps = [0.0002, 0.00025, 0.0003, 0.00038, 0.0005, 0.0006, 0.00075, 0.001, 0.0015, 0.003]
 
 
