@@ -41,97 +41,99 @@ def pickle_everything(filename):
 # --  Load the loss data  ---------------------------------------------------- #
 
 
-#COLD_LR, COLD_BS, SIMULATION_TYPE = '0.0256', '128', 'fixed_bs'
-COLD_LR, COLD_BS, SIMULATION_TYPE = '0.03', '150', 'fixed_lr'
-OUTPUT_DIR = 'reheating_data/' + SIMULATION_TYPE + '_cold_lr=' + COLD_LR + '_bs=' + COLD_BS
+for directory in os.listdir('reheating_data'):
+    if not fnmatch.fnmatch(directory, '*_cold_lr=*_bs=*'): continue
+    OUTPUT_DIR = 'reheating_data/' + directory
 
-cold_losses = []
-all_reheated_losses = []
+#    COLD_LR, COLD_BS, SIMULATION_TYPE = '0.0256', '128', 'fixed_bs'
+#    COLD_LR, COLD_BS, SIMULATION_TYPE = '0.03', '150', 'fixed_lr'
+#    OUTPUT_DIR = 'reheating_data/' + SIMULATION_TYPE + '_cold_lr=' + COLD_LR + '_bs=' + COLD_BS
 
-print("Loading data...")
-for filename in os.listdir(OUTPUT_DIR):
-    if fnmatch.fnmatch(filename, 'cold_losses_*.p'):
-        lr, bs = get_lrbs_from_file(filename)
-        losses = pickle_everything(OUTPUT_DIR + '/' + filename)
-        cold_losses = [lr, bs, losses]
+    cold_losses = []
+    all_reheated_losses = []
 
-    elif fnmatch.fnmatch(filename, 'reheated_losses_*.p'):
-        lr, bs = get_lrbs_from_file(filename)
-        losses = pickle_everything(OUTPUT_DIR + '/' + filename)
-        all_reheated_losses.append([lr, bs, losses])
+    print("Loading data in '{}'...".format(OUTPUT_DIR))
+    for filename in os.listdir(OUTPUT_DIR):
+        if fnmatch.fnmatch(filename, 'cold_losses_*.p'):
+            lr, bs = get_lrbs_from_file(filename)
+            losses = pickle_everything(OUTPUT_DIR + '/' + filename)
+            cold_losses = [lr, bs, losses]
 
-if len(cold_losses) == 0:
-    print("Cold losses not found!")
-    quit()
+        elif fnmatch.fnmatch(filename, 'reheated_losses_*.p'):
+            lr, bs = get_lrbs_from_file(filename)
+            losses = pickle_everything(OUTPUT_DIR + '/' + filename)
+            all_reheated_losses.append([lr, bs, losses])
 
-all_reheated_losses = sorted(all_reheated_losses, key = lambda el: el[0]/el[1])
+    if len(cold_losses) == 0:
+        print("Cold losses not found!")
+        quit()
 
+    all_reheated_losses = sorted(all_reheated_losses, key = lambda el: el[0]/el[1])
 
-# --  Plot the loss data  ---------------------------------------------------- #
+    # --  Plot the loss data  ------------------------------------------------ #
 
+    _, (plt_left, plt_right) = plt.subplots(1, 2, sharey = True, figsize = (16.8, 10))
+    plt.tight_layout()
 
-_, (plt_left, plt_right) = plt.subplots(1, 2, sharey = True, figsize = (16.8, 10))
-plt.tight_layout()
+    print("Plotting cold run...")
+    lr = cold_losses[0]
+    plt_left.plot([ t*lr for t, l in cold_losses[-1] ], [ l for t, l in cold_losses[-1] ], '-')
+    plt_left.set_yscale('log')
+    plt_left.set_xscale('log')
+    plt_left.set_ylabel('Loss')
+    plt_left.set_xlabel('$\lambda$t')
 
-print("Plotting cold run...")
-lr = cold_losses[0]
-plt_left.plot([ t*lr for t, l in cold_losses[-1] ], [ l for t, l in cold_losses[-1] ], '-')
-plt_left.set_yscale('log')
-plt_left.set_xscale('log')
-plt_left.set_ylabel('Loss')
-plt_left.set_xlabel('$\lambda$t')
+    print("Plotting reheated losses...")
+    for reheated_losses in all_reheated_losses:
+        if len(reheated_losses[-1]) == 0: continue  # the simulation is still running
 
-print("Plotting reheated losses...")
-for reheated_losses in all_reheated_losses:
-    if len(reheated_losses[-1]) == 0: continue  # the simulation is still running
+        lr, bs = reheated_losses[0:2]
+        if not reheated_losses[-1][-1][1] > 0:
+            print("Skipping lr={}, bs={} -- diverged".format(lr, bs))
+            continue
 
-    lr, bs = reheated_losses[0:2]
-    if not reheated_losses[-1][-1][1] > 0:
-        print("Skipping lr={}, bs={} -- diverged".format(lr, bs))
-        continue
+        plt_right.plot(
+            [ t*lr for t, l in reheated_losses[-1] ], [ l for t, l in reheated_losses[-1] ], '-',
+            label = "T={:.2}, lr={}, bs={}".format(lr/bs, lr, bs)
+        )
 
-    plt_right.plot(
-        [ t*lr for t, l in reheated_losses[-1] ], [ l for t, l in reheated_losses[-1] ], '-',
-        label = "T={:.2}, lr={}, bs={}".format(lr/bs, lr, bs)
-    )
-plt_right.set_yscale('log')
-plt_right.set_xscale('log')
-plt_right.set_xlabel('$\lambda$t')
-plt_right.legend()
+    plt_right.set_yscale('log')
+    plt_right.set_xscale('log')
+    plt_right.set_xlabel('$\lambda$t')
+    plt_right.legend()
 
-#plt.show()
-with PdfPages(OUTPUT_DIR + '/all_losses.pdf') as pdf:
-    pdf.savefig()
+    #plt.show()
+    with PdfPages(OUTPUT_DIR + '/all_losses.pdf') as pdf:
+        pdf.savefig()
 
-plt.close()
+    plt.close()
 
+    # --  Plot the loss data (normalized)  ----------------------------------- #
 
-# --  Plot the loss data (normalized)  --------------------------------------- #
+    plt.figure(figsize = (16.8, 10))
+    plt.tight_layout()
 
+    print("Plotting reheated losses (normalized)...")
+    for reheated_losses in all_reheated_losses:
+        if len(reheated_losses[-1]) == 0: continue  # the simulation is still running
 
-plt.figure(figsize = (16.8, 10))
-plt.tight_layout()
+        lr, bs = reheated_losses[0:2]
+        if not reheated_losses[-1][-1][1] > 0:
+            print("Skipping lr={}, bs={} -- diverged".format(lr, bs))
+            continue
 
-print("Plotting reheated losses (normalized)...")
-for reheated_losses in all_reheated_losses:
-    if len(reheated_losses[-1]) == 0: continue  # the simulation is still running
+        plt.plot(
+            [ t*lr for t, l in reheated_losses[-1] ], [ float(l)/l0 for (t, l), (_, l0) in zip(reheated_losses[-1], all_reheated_losses[0][-1]) ], '-',
+            label = "T={:.2}, lr={}, bs={}".format(lr/bs, lr, bs)
+        )
 
-    lr, bs = reheated_losses[0:2]
-    if not reheated_losses[-1][-1][1] > 0:
-        print("Skipping lr={}, bs={} -- diverged".format(lr, bs))
-        continue
+    plt.yscale('log')
+    plt.xscale('log')
+    plt.xlabel('$\lambda$t')
+    plt.legend()
 
-    plt.plot(
-        [ t*lr for t, l in reheated_losses[-1] ], [ float(l)/l0 for (t, l), (_, l0) in zip(reheated_losses[-1], all_reheated_losses[0][-1]) ], '-',
-        label = "T={:.2}, lr={}, bs={}".format(lr/bs, lr, bs)
-    )
-plt.yscale('log')
-plt.xscale('log')
-plt.xlabel('$\lambda$t')
-plt.legend()
+    #plt.show()
+    with PdfPages(OUTPUT_DIR + '/all_losses_normalized.pdf') as pdf:
+        pdf.savefig()
 
-#plt.show()
-with PdfPages(OUTPUT_DIR + '/all_losses_normalized.pdf') as pdf:
-    pdf.savefig()
-
-plt.close()
+    plt.close()
