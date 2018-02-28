@@ -227,7 +227,7 @@ def do_reheating_cycle(lrs, bss, network_parameters, trainset, minimization_time
 network_parameters = (1, 10, 28)
 
 # minimization time for each run (both cold and reheated)
-minimization_time = int(1e2)  # I USE 1e2 FOR DEBUG PURPOSES; USE ~1e5-1e6
+minimization_time = int(1e5)  # I USE 1e2 FOR DEBUG PURPOSES; USE ~1e5-1e6
 
 # temperatures for reheating; first one is for the cold model
 # I am using the same temperatures Mario used (I want to reproduce the same data)

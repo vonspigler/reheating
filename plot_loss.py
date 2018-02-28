@@ -49,15 +49,15 @@ cold_losses = []
 all_reheated_losses = []
 
 print("Loading data...")
-for file in os.listdir(OUTPUT_DIR):
-    if fnmatch.fnmatch(file, 'cold_losses_*.p'):
-        lr, bs = get_lrbs_from_file(file)
-        losses = pickle_everything(OUTPUT_DIR + '/' + file)
+for filename in os.listdir(OUTPUT_DIR):
+    if fnmatch.fnmatch(filename, 'cold_losses_*.p'):
+        lr, bs = get_lrbs_from_file(filename)
+        losses = pickle_everything(OUTPUT_DIR + '/' + filename)
         cold_losses = [lr, bs, losses]
 
-    elif fnmatch.fnmatch(file, 'reheated_losses_*.p'):
-        lr, bs = get_lrbs_from_file(file)
-        losses = pickle_everything(OUTPUT_DIR + '/' + file)
+    elif fnmatch.fnmatch(filename, 'reheated_losses_*.p'):
+        lr, bs = get_lrbs_from_file(filename)
+        losses = pickle_everything(OUTPUT_DIR + '/' + filename)
         all_reheated_losses.append([lr, bs, losses])
 
 if len(cold_losses) == 0:
