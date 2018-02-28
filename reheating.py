@@ -7,7 +7,9 @@
 ##      TODO:                                                                 ##
 ##                                                                            ##
 ##      * Save state_dict's for a bunch of intermediate points, in order      ##
-##      * to do an interpolation in interpolation.py                          ##
+##        to do an interpolation in interpolation.py                          ##
+##                                                                            ##
+##      * check whether Loss = NaN and quit()                                 ##
 ##                                                                            ##
 ################################################################################
 
